@@ -38,6 +38,9 @@ BRITISH_NATIONAL_GRID = 27700
 # Number of seconds to wait for a response from the server before giving up
 TIMEOUT = 120
 
+# Make a logger for this module
+logger = get_logger(__name__, LoggingLevels.INFO.value)
+
 
 # --- FINDING SERVICES AND THEIR CONTENTS ---
 def ons_layer_url(service: str, layer: int | None = None) -> str:
@@ -190,6 +193,7 @@ def query_table(
         DataFrame of rows matching the query, with columns in `out_fields` order (or the order returned by the server if
         `out_fields` is None)
     """
+    logger.info(f"Querying {layer_url}\n" + f"for {where}\n" + f"with fields {out_fields or 'all'}")
     features = _query_all(layer_url, where, out_fields, {"f": "json", "returnGeometry": "false"})
     return pd.DataFrame([f["attributes"] for f in features], columns=out_fields)
 
@@ -228,6 +232,7 @@ def query_features(
         GeoDataFrame of features matching the query, with columns in `out_fields` order (or the order returned by the
         server if `out_fields` is None), and geometry in `out_sr` coordinate system
     """
+    logger.info(f"Querying {layer_url}\n" + f"for {where}\n" + f"with fields {out_fields or 'all'}")
     features = _query_all(layer_url, where, out_fields,
                           {"f": "geojson", "outSR": out_sr}, page_size)
     crs = f"EPSG:{out_sr}"

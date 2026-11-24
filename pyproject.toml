@@ -6,6 +6,9 @@ build-backend = "setuptools.build_meta"
 name = "bc-viz"
 version = "0.0.1"
 dependencies = [
+    "pandas",
+    "geopandas",
+    "requests",
 ]
 authors = [
   {name = "Ashley Parr", email = "ashley.parr@protonmail.com"}
@@ -25,7 +28,7 @@ exclude = ["docs*", "tests*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-diffracc = ["*.toml", "*.dat"]
+bc-viz = ["*.toml", "*.dat"]
 
 [project.optional-dependencies]
 test = [
