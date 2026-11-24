@@ -13,6 +13,10 @@ features. As a note, the ONS portal structure and response is like so:
 table (without geometry; e.g., a csv file)
 - we call each row in a table or layer a "feature", which is a single record with attributes and possibly geometry
 
+However, not every published product is a queryable service; some are just files with a different endpoint. The module
+also provides functions to download those files, which are usually zipped CSVs. The ArcGIS Online portal is at
+    https://www.arcgis.com/sharing/rest/content/items/<item id>/data
+
 You can use the functions below to find things, since the portal documentation does not cover this:
     list_services("msoa")   service names containing "msoa"
     fields(url)             column names of a table or boundary layer
@@ -21,6 +25,7 @@ You can use the functions below to find things, since the portal documentation d
 from __future__ import annotations
 
 from collections.abc import Iterable
+from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
@@ -28,8 +33,11 @@ import requests
 
 from ..utils.logger import LoggingLevels, get_logger
 
-# The API access point for the ONS Open Geography Portal
+# The API access point for services atthe ONS Open Geography Portal
 ONS_SERVICES = "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services"
+
+# Not every downloadable item is a queryable service, some are just files with a different endpoint
+ARCGIS_ONLINE_ITEMS = "https://www.arcgis.com/sharing/rest/content/items"
 
 # The integer relating to the British National Grid coordinate system, used by ONS for all its boundaries.
 # See https://epsg.io/27700 for details.
@@ -242,7 +250,64 @@ def query_features(
     return gdf[[*out_fields, "geometry"]] if out_fields else gdf
 
 
-# --- Internals ---------------------------------------------------------------
+# --- FILE ITEMS ---
+def item_info(item_id: str) -> dict:
+    """
+    Catalogue entry for a portal item: 'title', 'type' (e.g. 'CSV Collection'), 'name' (original filename),
+    'size' (bytes), 'modified' (ms since 1970), and 'url' for items that are services.
+    
+    Parameters
+    ----------
+    item_id : str
+        ArcGIS Online item ID, e.g. "f3e0c1d8f3e04c8a1b0f3e0c1d8f3e0c"
+    
+    Returns
+    -------
+    dict
+        Dictionary with item metadata, including 'title', 'type', 'name', 'size', 'modified', and 'url' for items that
+        are services
+    """
+    return _request(f"{ARCGIS_ONLINE_ITEMS}/{item_id}", {})
+
+
+def download_item(item_id: str, dest: str | Path, expected_title: str | None = None) -> Path:
+    """
+    Download a file item (e.g. a zipped CSV) to `dest`, unchanged, and return the path.
+
+    With `expected_title`, the item's title must match exactly: a check that a pinned ID still refers to the dataset you
+    intend. The file is written to '<dest>.partial' and only renamed once its size matches the catalogue's.
+
+    Parameters
+    ----------
+    item_id : str
+        ArcGIS Online item ID, e.g. "f3e0c1d8f3e04c8a1b0f3e0c1d8f3e0c"
+    dest : str | Path
+        Path to save the downloaded file, unchanged. You should use the ".zip" extension.
+    expected_title : str | None
+        If not None, the item's title must match exactly; otherwise a ValueError is raised
+    """
+    info = item_info(item_id)
+    if expected_title is not None and info["title"] != expected_title:
+        raise ValueError(f"Item {item_id} is titled {info['title']!r}, expected {expected_title!r}")
+    if info.get("url"):
+        raise ValueError(f"Item {item_id} is a {info['type']}, not a file; query it at {info['url']}")
+
+    dest = Path(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    partial = dest.with_name(dest.name + ".partial")
+    # Streamed in 1 MB pieces, so large files never sit in memory whole.
+    with requests.get(f"{ARCGIS_ONLINE_ITEMS}/{item_id}/data", stream=True, timeout=TIMEOUT) as response:
+        response.raise_for_status()
+        with open(partial, "wb") as f:
+            f.writelines(response.iter_content(chunk_size=1 << 20))
+    if info.get("size") and partial.stat().st_size != info["size"]:
+        raise RuntimeError(f"Downloaded {partial.stat().st_size} bytes of item {item_id}, "
+                           f"expected {info['size']} (partial file kept at {partial})")
+    partial.replace(dest)
+    return dest
+
+
+# --- INTERNALS ---
 def _query_all(
     layer_url: str,
     where: str,
