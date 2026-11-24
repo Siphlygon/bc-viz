@@ -3,7 +3,9 @@ A module for working with geographical data in the bc-viz project.
 """
 import os
 import re
+from dataclasses import dataclass
 from enum import IntEnum
+from typing import overload
 
 import pandas as pd
 
@@ -11,18 +13,18 @@ from ..acquire import arcgis_rest as ag
 from ..utils.logger import LoggingLevels, get_logger
 
 # Every LAD-level geography in Greater Manchester, for use in filtering data to only include these areas. This is not
-# expected to ever change.
+# expected to ever change. The names are connected to their respective LAD code
 GM_DISTRICTS = {
-    "Bolton",
-    "Bury",
-    "Manchester",
-    "Oldham",
-    "Rochdale",
-    "Salford",
-    "Stockport",
-    "Tameside",
-    "Trafford",
-    "Wigan",
+    "Bolton": "E08000001",
+    "Bury": "E08000002",
+    "Manchester": "E08000003",
+    "Oldham": "E08000004",
+    "Rochdale": "E08000005",
+    "Salford": "E08000006",
+    "Stockport": "E08000007",
+    "Tameside": "E08000008",
+    "Trafford": "E08000009",
+    "Wigan": "E08000010",
 }
 
 # The name & ID of the API endpoint providing the ONS lookup table, and its local name in our project.
@@ -54,6 +56,30 @@ class GeoLevel(IntEnum):
     @property
     def name_col(self) -> str:
         return f"{self.name.lower()}_name"
+
+
+@dataclass
+class GeoArea:
+    """
+    A simple dataclass containing information on a specific area, including its name, code, and GeoLevel.
+
+    OAs do not have names, hence that column being optional.
+    
+    Example:
+        name = "Bolton 016"
+        code = "E02000999"
+        level = GeoLevel.MSOA
+    """
+    name: str | None
+    code: str
+    level: GeoLevel
+
+    def __post_init__(self):
+        if self.name is None:
+            self.name = "OA"  # overwrite the None with just a default "OA", which may help in future debugging
+
+    def __str__(self):
+        return f"name: {self.name}, code: {self.code}, level: {self.level}"
 
 
 def _get_geo_lookup_table() -> pd.DataFrame:
@@ -96,7 +122,7 @@ class GeoHierarchy:
     their names and parent geography codes. This allows for easy filtering of data to only include areas within a
     specific district or geography level.
     """
-    def __init__(self, table: pd.DataFrame, filter_districts: set["str"] | None = GM_DISTRICTS):
+    def __init__(self, table: pd.DataFrame, filter_districts: set["str"] | None = set(GM_DISTRICTS.keys())):
         """
         Set up a GeoHierarchy object with a lookup table of geographical areas. Optionally filter to only include areas
         within Greater Manchester.
@@ -149,7 +175,7 @@ class GeoHierarchy:
 
 
     # --- RETRIEVE INFORMATION ---
-    def get_parent(self, area_code: str, parent_level: GeoLevel) -> str:
+    def get_parent(self, area_code: str, parent_level: GeoLevel) -> GeoArea:
         """
         Get the parent area code of a given area code at a specified parent geography level.
 
@@ -186,12 +212,11 @@ class GeoHierarchy:
         row = self.table[self.table[level.code_col] == area_code]
         if row.empty:
             raise ValueError(f"No area found with code: {area_code}")
-        
-        return row[parent_level.code_col].values[0]
+        return self.to_geo_area(row[parent_level.code_col].values[0])
 
-    def areas_in(self, area_code: str, child_level: GeoLevel) -> list[str]:
+    def areas_in(self, area_code: str, child_level: GeoLevel) -> list[GeoArea]:
         """
-        Get all the area codes of areas of `child_level` inside `area_code`.
+        Get all the GeoAreas of `child_level` inside `area_code`.
 
         Parameters
         ----------
@@ -202,8 +227,8 @@ class GeoHierarchy:
 
         Returns
         -------
-        list[str]
-            A list of area codes all of `child_level` who have `area_code` as a parent.
+        list[GeoArea]
+            A list of GeoArea all of `child_level` who have `area_code` as a parent.
 
         Raises
         ------
@@ -221,7 +246,7 @@ class GeoHierarchy:
         rows = self.table[self.table[level.code_col] == area_code]
         if rows.empty:
             raise ValueError(f"No area found with code: {area_code}")
-        return list(set(rows[child_level.code_col].values))
+        return self.to_geo_area(list(set(rows[child_level.code_col].values)))
 
 
     # --- UTILITY ---
@@ -243,7 +268,7 @@ class GeoHierarchy:
         Returns
         -------
         GeoLevel
-            The geography level of the area
+            The geography level of the area.
         
         Raises
         ------
@@ -258,10 +283,73 @@ class GeoHierarchy:
             case _:
                 raise ValueError(f"Cannot identify the level of area code: {area_code}")
 
+    @overload
+    def to_geo_area(self, area_code: str) -> GeoArea: ...
+    @overload
+    def to_geo_area(self, area_code: list[str]) -> list[GeoArea]: ...
+    def to_geo_area(self, area_code):
+        """
+        Converts area code(s) into a GeoArea(s) using values from the table.
+
+        Parameters
+        ----------
+        area_code : str | list[str]
+            The target area code(s).
+
+        Returns
+        -------
+        GeoArea | list[GeoArea]
+            The geographical area(s) represented by the code(s).
+
+        Raises
+        ------
+        ValueError
+            If an area code cannot be identified or is not present in the table.
+        """
+        geo_areas = []
+        single_value = False
+
+        if isinstance(area_code, str):
+            area_code = [area_code]
+            single_value = True
+        
+        for code in area_code:
+            level = self._get_level_from_code(code)
+            rows = self.table[self.table[level.code_col] == code]
+            if rows.empty:
+                raise ValueError(f"No area found with code: {code}")
+
+            name = rows[level.name_col].values[0]
+            geo_areas.append(GeoArea(name=name, code=code, level=level))
+        return geo_areas if not single_value else geo_areas[0]
+
+    def get_lad_code(self, lad_name: str) -> str:
+        """
+        Converts a common-name for an LAD (e.g., "Bolton") into its area code using GM_DISTRICTS.
+
+        Parameters
+        ----------
+        lad_name : str
+            The name of a LAD in Greater Manchester.
+
+        Returns
+        -------
+        str
+            The area code corresponding to the LAD.
+        
+        Raises
+        ------
+        ValueError
+            If the LAD name is not in GM_DISTRICTS.
+        """
+        # Convert to CapitalCase style (bolton --> Bolton)
+        lad_name = lad_name[0].upper() + lad_name[1:].lower() 
+        if lad_name not in GM_DISTRICTS:
+            raise ValueError(f"{lad_name} is not a valid name for a LAD in Greater Manchester")
+        return GM_DISTRICTS[lad_name]
+
 
 if __name__ == "__main__":
     # Example usage of the GeoHierarchy class
     geo_hierarchy = GeoHierarchy.from_ons_lookup()
     print(geo_hierarchy.table.head())
-
-    print(geo_hierarchy.areas_in("E01033220", GeoLevel.OA))
