@@ -177,6 +177,10 @@ class GeoHierarchy:
         level = self._get_level_from_code(area_code)
         if level == GeoLevel.LAD:
             raise ValueError("LADs do not have any parent areas in this database.")
+
+        if not parent_level > level:
+            raise ValueError(f"{parent_level} are not parents of {level}.")
+
         
         # Get the row corresponding to the given area code
         row = self.table[self.table[level.code_col] == area_code]
@@ -211,10 +215,13 @@ class GeoHierarchy:
         if level == GeoLevel.OA:
             raise ValueError("OAs do not have any child areas inside them.")
 
+        if not child_level < level:
+            raise ValueError(f"{child_level} are not children of {level}.")
+
         rows = self.table[self.table[level.code_col] == area_code]
         if rows.empty:
             raise ValueError(f"No area found with code: {area_code}")
-        return rows[child_level.code_col].values
+        return list(set(rows[child_level.code_col].values))
 
 
     # --- UTILITY ---
@@ -256,3 +263,5 @@ if __name__ == "__main__":
     # Example usage of the GeoHierarchy class
     geo_hierarchy = GeoHierarchy.from_ons_lookup()
     print(geo_hierarchy.table.head())
+
+    print(geo_hierarchy.areas_in("E01033220", GeoLevel.OA))
