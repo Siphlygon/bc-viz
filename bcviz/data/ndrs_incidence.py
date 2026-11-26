@@ -51,13 +51,18 @@ def download_all_bc_incidence(geo_level: GeoLevel, dest: str | Path, years: str)
     -------
     Path
         The path to the downloaded CSV; same as `dest`.
-    """
-    assert geo_level in [GeoLevel.MSOA, GeoLevel.LAD], "NDRS only has incidence data for MSOAs & LADs"
 
-    if geo_level == GeoLevel.MSOA:
-        assert years in ALLOWED_YEARS_MSOA, "Must choose a valid 5-year range for MSOAs."
-    else: # TODO: LAD ALLOWS FOR DIFFERENT RATES OF POOLING
-        assert years in ALLOWED_YEARS_MSOA, "Must choose a valid 5-year range for LADs."
+    Raises
+    ------
+    ValueError
+        If `geo_level` is not MSOA or LAD, or `years` is not an allowed 5-year range.
+    """
+    if geo_level not in [GeoLevel.MSOA, GeoLevel.LAD]:
+        raise ValueError("NDRS only has incidence data for MSOAs & LADs")
+
+    # TODO: LAD ALLOWS FOR DIFFERENT RATES OF POOLING
+    if years not in ALLOWED_YEARS_MSOA:
+        raise ValueError(f"Must choose a valid 5-year range for {geo_level.name}s, one of {ALLOWED_YEARS_MSOA}.")
 
     geo_h = GeoHierarchy.from_ons_lookup()
     areas = geo_h.get_areas_in_gm(geo_level)
@@ -160,6 +165,24 @@ def pivot_age_rates(cleaned_df: pd.DataFrame, geo_level: GeoLevel) -> pd.DataFra
     per_area = cleaned_df.drop_duplicates(geo_level.code_col
                                           ).set_index(geo_level.code_col)[[geo_level.name_col, "count"]]
     return per_area.join(wide).reset_index()
+
+
+def read_incidence(csv_path: str | Path) -> pd.DataFrame:
+    """
+    Read a table saved by `get_bc_incidence`, with the same column types it had when it was made.
+
+    Parameters
+    ----------
+    csv_path : str | Path
+        The path to the saved, pivoted incidence table.
+
+    Returns
+    -------
+    pd.DataFrame
+        The incidence table, with counts as whole numbers that can be missing and flags as text.
+    """
+    flags = {f"{rate_type}_flag": "str" for rate_type in RATE_TYPES.values()}
+    return pd.read_csv(csv_path, dtype={"count": "Int64", **flags})
 
 
 def get_bc_incidence(msoa_path: str | Path = "data/gm_msoa_bc_incidence.csv",
