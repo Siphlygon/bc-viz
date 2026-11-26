@@ -264,8 +264,14 @@ class GeoHierarchy:
         -------
         list[GeoArea]
             A list of GeoArea all of `geo_level` who are in Greater Manchester.
+
+        Raises
+        ------
+        ValueError
+            If `geo_level` is not a GeoLevel.
         """
-        assert geo_level in GeoLevel, f"Invalid geo level: {geo_level}. Must be one of {list(GeoLevel)}."
+        if geo_level not in GeoLevel:
+            raise ValueError(f"Invalid geo level: {geo_level}. Must be one of {list(GeoLevel)}.")
         if geo_level == GeoLevel.LAD:
             return [GeoArea(name=lad_name,
                             code=lad_code,
@@ -350,7 +356,10 @@ class GeoHierarchy:
             if rows.empty:
                 raise ValueError(f"No area found with code: {code}")
 
-            name = rows[level.name_col].values[0]
+            if level == GeoLevel.OA and level.name_col not in rows.columns:
+                name = None  # the ONS lookup has no OA names; GeoArea gives them a placeholder
+            else:
+                name = rows[level.name_col].values[0]
             geo_areas.append(GeoArea(name=name, code=code, level=level))
         return geo_areas if not single_value else geo_areas[0]
 
