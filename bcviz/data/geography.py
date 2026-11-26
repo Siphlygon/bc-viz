@@ -248,6 +248,34 @@ class GeoHierarchy:
             raise ValueError(f"No area found with code: {area_code}")
         return self.to_geo_area(list(set(rows[child_level.code_col].values)))
 
+    def get_areas_in_gm(self, geo_level: GeoLevel) -> list[GeoArea]:
+        """
+        Get all the GeoAreas of `geo_level` inside Greater Manchester (combined authority).
+
+        This is purely a convenience function, as areas within Greater Manchester are expected to be the main focus
+        of this project.
+
+        Parameters
+        ----------
+        geo_level : GeoLevel
+            The `GeoLevel` of the GeoAreas in GM you want to find (e.g., GeoLevel.MSOA for MSOAs)
+
+        Returns
+        -------
+        list[GeoArea]
+            A list of GeoArea all of `geo_level` who are in Greater Manchester.
+        """
+        assert geo_level in GeoLevel, f"Invalid geo level: {geo_level}. Must be one of {list(GeoLevel)}."
+        if geo_level == GeoLevel.LAD:
+            return [GeoArea(name=lad_name,
+                            code=lad_code,
+                            level=GeoLevel.LAD) for lad_name, lad_code in GM_DISTRICTS.items()]
+
+        # Exact same process for each census statistical geography
+        gm_lad_codes = GM_DISTRICTS.values()
+        census_areas = [self.areas_in(code, geo_level) for code in gm_lad_codes] # find all GeoAreas for each LAD
+        return [item for sublist in census_areas for item in sublist] # unpacking to 1d list
+
 
     # --- UTILITY ---
     def _get_level_from_code(self, area_code: str) -> "GeoLevel":
