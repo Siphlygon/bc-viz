@@ -195,9 +195,13 @@ class GeoHierarchy:
         ------
         ValueError
             `area_code` refers to an LAD (no parents), or there is no row in the table with `area_code`.
+        TypeError
+            `parent_level` is not a valid GeoLevel.
         """
-        if parent_level not in GeoLevel:
-            raise ValueError(f"Invalid parent level: {parent_level}. Must be one of {list(GeoLevel)}.")
+        # isinstance, not `in GeoLevel`: that raises TypeError for non-members before Python 3.12, and accepts plain
+        # ints that match a level's value from 3.12
+        if not isinstance(parent_level, GeoLevel):
+            raise TypeError(f"Invalid parent level: {parent_level}. Must be one of {list(GeoLevel)}.")
 
         # Find the level of the area code we're given
         level = self._get_level_from_code(area_code)
@@ -264,8 +268,14 @@ class GeoHierarchy:
         -------
         list[GeoArea]
             A list of GeoArea all of `geo_level` who are in Greater Manchester.
+
+        Raises
+        ------
+        TypeError
+            If `geo_level` is not a GeoLevel.
         """
-        assert geo_level in GeoLevel, f"Invalid geo level: {geo_level}. Must be one of {list(GeoLevel)}."
+        if not isinstance(geo_level, GeoLevel):  # see get_parent for why not `in GeoLevel`
+            raise TypeError(f"Invalid geo level: {geo_level}. Must be one of {list(GeoLevel)}.")
         if geo_level == GeoLevel.LAD:
             return [GeoArea(name=lad_name,
                             code=lad_code,
@@ -281,12 +291,15 @@ class GeoHierarchy:
     def _get_level_from_code(self, area_code: str) -> "GeoLevel":
         """
         Area codes for the different geographical areas follow strict allowance rules, which therefore allows the
-        automatic determination of which area a specific code is describing, notably:
+        automatic determination of which area a specific code is describing. After the country letter, the next two
+        digits give the type of area:
 
-        * OAs are always in the form "E00" (3rd digit is always 0)
-        * LSOAs are always in the form "E01" (3rd digit is always 1)
-        * MSOAs are always in the form "E02" (3rd digit is always 2)
-        * LADs are (for GM) usually "E06", "E07, "E08", or "E09" (3rd digit is always in [6, 7, 8, 9])
+        * OAs are always in the form "E00"
+        * LSOAs are always in the form "E01"
+        * MSOAs are always in the form "E02"
+        * LADs are "E06", "E07", "E08", or "E09" (GM's are all "E08")
+
+        Both digits are checked, since other types share a 2nd digit with these (e.g. "E10" counties, "E12" regions).
 
         Parameters
         ----------
@@ -301,13 +314,13 @@ class GeoHierarchy:
         Raises
         ------
         ValueError
-            The code cannot be identified using the above criteria on its 3rd digit.
+            The code cannot be identified using the above criteria on its area-type digits.
         """
-        match area_code[2]:
-            case "0": return GeoLevel.OA
-            case "1": return GeoLevel.LSOA
-            case "2": return GeoLevel.MSOA
-            case "6" | "7" | "8" | "9": return GeoLevel.LAD
+        match area_code[1:3]:
+            case "00": return GeoLevel.OA
+            case "01": return GeoLevel.LSOA
+            case "02": return GeoLevel.MSOA
+            case "06" | "07" | "08" | "09": return GeoLevel.LAD
             case _:
                 raise ValueError(f"Cannot identify the level of area code: {area_code}")
 
@@ -347,7 +360,10 @@ class GeoHierarchy:
             if rows.empty:
                 raise ValueError(f"No area found with code: {code}")
 
-            name = rows[level.name_col].values[0]
+            if level == GeoLevel.OA and level.name_col not in rows.columns:
+                name = None  # the ONS lookup has no OA names; GeoArea gives them a placeholder
+            else:
+                name = rows[level.name_col].values[0]
             geo_areas.append(GeoArea(name=name, code=code, level=level))
         return geo_areas if not single_value else geo_areas[0]
 
