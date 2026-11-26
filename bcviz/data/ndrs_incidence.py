@@ -3,6 +3,7 @@ This is a module which uses the download machinery in ndrs.py to collect the app
 incidence visualisations at the MSOA and LAD level, making necessary cleaning and corrections for smooth joining later
 in the program.
 """
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -161,10 +162,12 @@ def pivot_age_rates(cleaned_df: pd.DataFrame, geo_level: GeoLevel) -> pd.DataFra
     return per_area.join(wide).reset_index()
 
 
-def get_bc_incidence(msoa_path: str | Path, lad_path: str | Path, years: str) -> None:
+def get_bc_incidence(msoa_path: str | Path = "data/gm_msoa_bc_incidence.csv",
+                     lad_path: str | Path = "data/gm_lad_bc_incidence.csv",
+                     years: str = "2018-2022") -> None:
     """
-    Run all the functions in this programming, resulting in a final, cleaned, pivoted breast cancer incidence table
-    for each geography.
+    Run all the functions in this module, resulting in a final, cleaned, pivoted breast cancer incidence table for each
+    geography.
 
     Parameters
     ----------
@@ -176,6 +179,11 @@ def get_bc_incidence(msoa_path: str | Path, lad_path: str | Path, years: str) ->
         The 5-year pool to download incidence data for.
     """
     for path, level in zip([msoa_path, lad_path], [GeoLevel.MSOA, GeoLevel.LAD]):
+        if not os.path.exists(path):
+            logger.info(f"{path} already exists, skipping download and cleaning")
+            continue
+
+        logger.info(f"Downloading {level.name} incidence data for {years} to {path}")
         download_all_bc_incidence(level, path, years)
         clean_df = clean_incidence(path, level)
         final_df = pivot_age_rates(clean_df, level)

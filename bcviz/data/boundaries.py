@@ -72,8 +72,8 @@ def filter_to_gm(boundaries: gpd.GeoDataFrame, geo_level: GeoLevel) -> gpd.GeoDa
     return boundaries[boundaries[code_col].isin(area_codes)]
 
 
-def download_all_boundaries(msoa_path: str | Path,
-                            lad_path: str | Path,
+def download_all_boundaries(msoa_path: str | Path = "data/gm_msoa_boundaries.gpkg",
+                            lad_path: str | Path = "data/gm_lad_boundaries.gpkg",
                             gm_only: bool = True) -> None:
     """
     This function downloads all the boundaries for the geographies of interest and saves them to disk.
@@ -89,9 +89,12 @@ def download_all_boundaries(msoa_path: str | Path,
     """
     for path, level in zip([msoa_path, lad_path], [GeoLevel.MSOA, GeoLevel.LAD]):
         if not os.path.exists(path):
-            boundaries = get_msoa_boundaries() if level == GeoLevel.MSOA else get_lad_boundaries()
-            if gm_only: boundaries = filter_to_gm(boundaries, level)
-            boundaries.to_file(path)
+            logger.info(f"{path} already exists, skipping download")
+            continue
+
+        boundaries = get_msoa_boundaries() if level == GeoLevel.MSOA else get_lad_boundaries()
+        if gm_only: boundaries = filter_to_gm(boundaries, level)
+        boundaries.to_file(path)
 
 
 if __name__ == "__main__":
