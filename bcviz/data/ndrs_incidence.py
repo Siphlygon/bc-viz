@@ -164,7 +164,7 @@ def pivot_age_rates(cleaned_df: pd.DataFrame, geo_level: GeoLevel) -> pd.DataFra
 
 def get_bc_incidence(msoa_path: str | Path = "data/gm_msoa_bc_incidence.csv",
                      lad_path: str | Path = "data/gm_lad_bc_incidence.csv",
-                     years: str = "2018-2022") -> None:
+                     years: str = "2018-2022") -> list[pd.DataFrame]:
     """
     Run all the functions in this module, resulting in a final, cleaned, pivoted breast cancer incidence table for each
     geography.
@@ -177,7 +177,13 @@ def get_bc_incidence(msoa_path: str | Path = "data/gm_msoa_bc_incidence.csv",
         The path to save the LAD-level incidence table to.
     years : str
         The 5-year pool to download incidence data for.
+    
+    Returns
+    -------
+    list[pd.DataFrame]
+        The final, cleaned, pivoted breast cancer incidence tables for each geography.
     """
+    results = []
     for path, level in zip([msoa_path, lad_path], [GeoLevel.MSOA, GeoLevel.LAD]):
         if not os.path.exists(path):
             logger.info(f"{path} already exists, skipping download and cleaning")
@@ -188,6 +194,8 @@ def get_bc_incidence(msoa_path: str | Path = "data/gm_msoa_bc_incidence.csv",
         clean_df = clean_incidence(path, level)
         final_df = pivot_age_rates(clean_df, level)
         final_df.to_csv(path, index=False)
+        results.append(final_df)
+    return results
 
 
 if __name__ == "__main__":
