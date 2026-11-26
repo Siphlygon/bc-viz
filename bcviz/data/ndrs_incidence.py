@@ -169,6 +169,9 @@ def get_bc_incidence(msoa_path: str | Path = "data/gm_msoa_bc_incidence.csv",
     Run all the functions in this module, resulting in a final, cleaned, pivoted breast cancer incidence table for each
     geography.
 
+    A table already saved at its path is read from there instead of being downloaded again (whatever `years` it was
+    made for), so the result always holds both tables.
+
     Parameters
     ----------
     msoa_path : str | Path
@@ -181,12 +184,13 @@ def get_bc_incidence(msoa_path: str | Path = "data/gm_msoa_bc_incidence.csv",
     Returns
     -------
     list[pd.DataFrame]
-        The final, cleaned, pivoted breast cancer incidence tables for each geography.
+        The final, cleaned, pivoted breast cancer incidence tables, MSOA first then LAD.
     """
     results = []
     for path, level in zip([msoa_path, lad_path], [GeoLevel.MSOA, GeoLevel.LAD]):
         if os.path.exists(path):
-            logger.info(f"{path} already exists, skipping download and cleaning")
+            logger.info(f"{path} already exists, reading it instead of downloading")
+            results.append(read_incidence(path))
             continue
 
         logger.info(f"Downloading {level.name} incidence data for {years} to {path}")

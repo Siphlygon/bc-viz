@@ -84,6 +84,9 @@ def get_all_boundaries(msoa_path: str | Path = "data/gm_msoa_boundaries.gpkg",
     """
     This function downloads all the boundaries for the geographies of interest and saves them to disk.
 
+    Boundaries already saved at their path are read from there instead of being downloaded again (as they were saved,
+    whatever `gm_only` is now), so the result always holds both geographies.
+
     Parameters
     ----------
     msoa_path : str | Path
@@ -96,12 +99,13 @@ def get_all_boundaries(msoa_path: str | Path = "data/gm_msoa_boundaries.gpkg",
     Returns
     -------
     list[gpd.GeoDataFrame]
-        The boundaries for each geography.
+        The boundaries for each geography, MSOA first then LAD.
     """
     results = []
     for path, level in zip([msoa_path, lad_path], [GeoLevel.MSOA, GeoLevel.LAD]):
         if os.path.exists(path):
-            logger.info(f"{path} already exists, skipping download")
+            logger.info(f"{path} already exists, reading it instead of downloading")
+            results.append(gpd.read_file(path))
             continue
 
         boundaries = download_boundaries(level)
