@@ -281,12 +281,15 @@ class GeoHierarchy:
     def _get_level_from_code(self, area_code: str) -> "GeoLevel":
         """
         Area codes for the different geographical areas follow strict allowance rules, which therefore allows the
-        automatic determination of which area a specific code is describing, notably:
+        automatic determination of which area a specific code is describing. After the country letter, the next two
+        digits give the type of area:
 
-        * OAs are always in the form "E00" (3rd digit is always 0)
-        * LSOAs are always in the form "E01" (3rd digit is always 1)
-        * MSOAs are always in the form "E02" (3rd digit is always 2)
-        * LADs are (for GM) usually "E06", "E07, "E08", or "E09" (3rd digit is always in [6, 7, 8, 9])
+        * OAs are always in the form "E00"
+        * LSOAs are always in the form "E01"
+        * MSOAs are always in the form "E02"
+        * LADs are "E06", "E07", "E08", or "E09" (GM's are all "E08")
+
+        Both digits are checked, since other types share a 2nd digit with these (e.g. "E10" counties, "E12" regions).
 
         Parameters
         ----------
@@ -301,13 +304,13 @@ class GeoHierarchy:
         Raises
         ------
         ValueError
-            The code cannot be identified using the above criteria on its 3rd digit.
+            The code cannot be identified using the above criteria on its area-type digits.
         """
-        match area_code[2]:
-            case "0": return GeoLevel.OA
-            case "1": return GeoLevel.LSOA
-            case "2": return GeoLevel.MSOA
-            case "6" | "7" | "8" | "9": return GeoLevel.LAD
+        match area_code[1:3]:
+            case "00": return GeoLevel.OA
+            case "01": return GeoLevel.LSOA
+            case "02": return GeoLevel.MSOA
+            case "06" | "07" | "08" | "09": return GeoLevel.LAD
             case _:
                 raise ValueError(f"Cannot identify the level of area code: {area_code}")
 
