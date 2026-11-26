@@ -9,6 +9,7 @@ dependencies = [
   "pandas",
   "geopandas",
   "requests",
+  "playwright"
 ]
 authors = [
   {name = "Ashley Parr", email = "ashley.parr@protonmail.com"}

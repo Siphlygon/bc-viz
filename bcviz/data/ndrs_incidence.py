@@ -185,7 +185,7 @@ def get_bc_incidence(msoa_path: str | Path = "data/gm_msoa_bc_incidence.csv",
     """
     results = []
     for path, level in zip([msoa_path, lad_path], [GeoLevel.MSOA, GeoLevel.LAD]):
-        if not os.path.exists(path):
+        if os.path.exists(path):
             logger.info(f"{path} already exists, skipping download and cleaning")
             continue
 
