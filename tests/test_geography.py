@@ -184,10 +184,12 @@ def test_get_parent_at_same_or_finer_level_raises(hierarchy, parent_level):
         hierarchy.get_parent(BOLTON_LSOA, parent_level)
 
 
-def test_get_parent_rejects_non_level(hierarchy):
+# 3 is GeoLevel.MSOA's value, but a plain int has no code_col, so it must be rejected too
+@pytest.mark.parametrize("not_a_level", [7, 3, "LAD", None])
+def test_get_parent_rejects_non_level(hierarchy, not_a_level):
     """Test that get_parent raises a ValueError when given a non-level parent level."""
-    with pytest.raises(ValueError, match="Invalid parent level"):
-        hierarchy.get_parent(BOLTON_LSOA, 7)
+    with pytest.raises(TypeError, match="Invalid parent level"):
+        hierarchy.get_parent(BOLTON_LSOA, not_a_level)
 
 
 def test_get_parent_of_unknown_code_raises(hierarchy):
@@ -281,10 +283,11 @@ def test_get_areas_in_gm_for_oas(hierarchy, ons_lookup):
     assert {a.name for a in areas} == {"OA"}
 
 
-def test_get_areas_in_gm_rejects_non_level(hierarchy):
+@pytest.mark.parametrize("not_a_level", [7, 3, "LAD", None])
+def test_get_areas_in_gm_rejects_non_level(hierarchy, not_a_level):
     """Test that get_areas_in_gm raises a ValueError when given a non-level geo level."""
-    with pytest.raises(ValueError, match="Invalid geo level"):
-        hierarchy.get_areas_in_gm(7)
+    with pytest.raises(TypeError, match="Invalid geo level"):
+        hierarchy.get_areas_in_gm(not_a_level)
 
 
 def test_get_areas_in_gm_raises_if_a_district_is_missing(ons_lookup):

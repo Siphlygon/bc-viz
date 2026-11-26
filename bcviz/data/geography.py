@@ -195,9 +195,13 @@ class GeoHierarchy:
         ------
         ValueError
             `area_code` refers to an LAD (no parents), or there is no row in the table with `area_code`.
+        TypeError
+            `parent_level` is not a valid GeoLevel.
         """
-        if parent_level not in GeoLevel:
-            raise ValueError(f"Invalid parent level: {parent_level}. Must be one of {list(GeoLevel)}.")
+        # isinstance, not `in GeoLevel`: that raises TypeError for non-members before Python 3.12, and accepts plain
+        # ints that match a level's value from 3.12
+        if not isinstance(parent_level, GeoLevel):
+            raise TypeError(f"Invalid parent level: {parent_level}. Must be one of {list(GeoLevel)}.")
 
         # Find the level of the area code we're given
         level = self._get_level_from_code(area_code)
@@ -267,11 +271,11 @@ class GeoHierarchy:
 
         Raises
         ------
-        ValueError
+        TypeError
             If `geo_level` is not a GeoLevel.
         """
-        if geo_level not in GeoLevel:
-            raise ValueError(f"Invalid geo level: {geo_level}. Must be one of {list(GeoLevel)}.")
+        if not isinstance(geo_level, GeoLevel):  # see get_parent for why not `in GeoLevel`
+            raise TypeError(f"Invalid geo level: {geo_level}. Must be one of {list(GeoLevel)}.")
         if geo_level == GeoLevel.LAD:
             return [GeoArea(name=lad_name,
                             code=lad_code,
