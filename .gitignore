@@ -3,3 +3,4 @@ __pycache__/
 .vscode/
 bcviz.egg-info/
 /data/
+.coverage
