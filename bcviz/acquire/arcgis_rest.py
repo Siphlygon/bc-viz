@@ -47,7 +47,7 @@ BRITISH_NATIONAL_GRID = 27700
 TIMEOUT = 120
 
 # Make a logger for this module
-logger = get_logger(__name__, LoggingLevels.INFO.value)
+logger = get_logger("bcviz.acquire.arcgis_rest", LoggingLevels.INFO)
 
 
 # --- FINDING SERVICES AND THEIR CONTENTS ---

@@ -55,7 +55,7 @@ _TABS = {
 }
 
 # Make a logger for this module
-logger = get_logger(__name__, LoggingLevels.INFO.value)
+logger = get_logger("bcviz.acquire.ndrs", LoggingLevels.INFO)
 
 
 def download_incidence(

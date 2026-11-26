@@ -1,5 +1,5 @@
 """
-A module for working with geographical data in the bc-viz project.
+A module for working with geographical data in the bcviz project.
 """
 import os
 import re

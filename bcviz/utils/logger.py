@@ -5,10 +5,10 @@ logging level. It also defines an enumeration for logging levels to facilitate e
 Source: https://github.com/tmartinezML/LOFAR-Diffusion/blob/master/src/utils/logging.py
 """
 import logging
-from enum import Enum
+from enum import IntEnum
 
 
-class LoggingLevels(Enum):
+class LoggingLevels(IntEnum):
     """
     An enum to represent the different logging levels. This is used to set the logging level for the logger.
     """
